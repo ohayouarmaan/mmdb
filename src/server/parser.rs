@@ -39,7 +39,9 @@ impl Command {
     }
     pub fn from_message(message: String) -> Self {
         let cmds: Vec<&str> = message.split_whitespace().collect();
-        if (*cmds.get(0).unwrap()).trim().to_lowercase() == "echo" {
+        let leader = (*cmds.get(0).unwrap()).trim().to_lowercase();
+        println!("Leader: {:?}", leader);
+        if  leader == "echo" {
             return Self {
                 c_type: CommandType::ECHO(CommandArgument {
                     arg_type: SupportedDataTypes::STRING(String::from(*cmds.get(1).unwrap()))
