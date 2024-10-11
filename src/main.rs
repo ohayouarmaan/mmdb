@@ -11,10 +11,13 @@ fn main() {
         match stream {
             Ok(mut valid_stream) => {
                 println!("accepted new connection");
-                let mut data: Vec<u8> = Vec::new();
-                let data_read = valid_stream.read(&mut data);
-                if let Ok(read) = data_read {
-                    valid_stream.write("+PONG\r\n".as_bytes());
+                let mut data: [u8; 1024] = [0; 1024];
+                loop {
+                    let read_bytes = valid_stream.read(&mut data).unwrap();
+                    if read_bytes != 0 {
+                        println!("rb: {:?}", read_bytes);
+                        valid_stream.write("+PONG\r\n".as_bytes());
+                    }
                 }
             }
             Err(e) => {
