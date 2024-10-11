@@ -62,7 +62,7 @@ impl Command {
             }
 
             CommandType::PING => {
-                return b"PONG\r\n".to_vec();
+                return b"+PONG\r\n".to_vec();
             }
         }
     }
