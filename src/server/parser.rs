@@ -8,8 +8,8 @@ pub enum DS {
 
 #[derive(Debug)]
 pub struct RedArray {
-    length: usize,
-    value: Vec<DS>
+    pub length: usize,
+    pub value: Vec<DS>
 }
 
 #[derive(Debug)]
@@ -27,23 +27,21 @@ impl RESPParser {
     }
 
     pub fn parse(&mut self) -> DS {
-        let mut current_token = "";
         match self.source_code.chars().nth(self.current_index).unwrap() {
             '*' => {
                 // Parse Array
-                println!("PARSING ARRAY");
                 return self.parse_array();
             },
             '$' => {
-                println!("PARSING STRING");
-                return self.parse_string();
+                // Parse Bulk String
+                let s = self.parse_string();
+                self.advance();
+                return s;
             }, 
             _ => {
                 return DS::Integer(2);
             }
         }
-        self.advance();
-        return DS::Integer(2);
     }
 
     fn advance(&mut self) {
@@ -66,12 +64,10 @@ impl RESPParser {
 
     fn parse_array(&mut self) -> DS {
         self.advance();
-        let number_of_elements = (self.source_code.chars().nth(self.current_index).unwrap()).to_digit(10).expect("Expected a number");
-        println!("NUMBER OF ELEMENTS: {:?}", number_of_elements);
+        let number_of_elements = self.parse_number();
         self.advance();
         let mut tokens: Vec<DS> = Vec::new();
-        for i in 0..number_of_elements {
-            println!("parsing {}", i);
+        for _ in 0..number_of_elements {
             tokens.push(self.parse());
         }
         return DS::RedArray(RedArray {
@@ -80,14 +76,23 @@ impl RESPParser {
         })
     }
 
+    fn parse_number(&mut self) -> u32 {
+        let mut x = String::from("");
+        while '0' <= self.source_code.chars().nth(self.current_index).expect("expected a char") && self.source_code.chars().nth(self.current_index).expect("expected a char") <= '9' {
+            x.push(self.source_code.chars().nth(self.current_index).expect("Expected a character"));
+            self.current_index += 1;
+        }
+
+        let to_return: u32 = x.parse().unwrap();
+        return to_return;
+    }
+
     fn parse_string(&mut self) -> DS {
         self.advance();
-        let str_len = (self.source_code.chars().nth(self.current_index).unwrap()).to_digit(10).expect("Expected a number") as usize;
+        let str_len = self.parse_number() as usize;
         self.advance();
-        println!("Str len: {:?}", str_len);
         self.current_index += str_len;
-        println!("parsed_string: {:?}", self.source_code.get((self.current_index - str_len)..self.current_index));
-        self.advance();
-        return DS::String(self.current_index - str_len, self.current_index - 2);
+        
+        return DS::String(self.current_index - str_len, self.current_index);
     }
 }

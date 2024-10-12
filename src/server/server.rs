@@ -1,6 +1,7 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::prelude::*;
 use crate::server::parser::RESPParser;
+use crate::server::interpreter::RESPInterpreter;
 
 pub struct Server {
     listener: TcpListener,
@@ -46,30 +47,10 @@ impl Server {
                         println!("message: {:?}", message);
                         let mut rp = RESPParser::new(&message);
                         let ds = rp.parse();
-                        println!("DS: {:?}", ds);
-                        let _ = client.write(b"+PONG\r\n");
+                        let interpreter = RESPInterpreter::new(&message);
+                        let response = interpreter.interpret(ds);
+                        let _ = client.write(response.as_bytes());
                     }
-                }
-            }
-        }
-    }
-
-    pub fn listen_incoming(&self) {
-        for stream in self.listener.incoming() {
-            match stream {
-                Ok(mut valid_stream) => {
-                    println!("accepted new connection");
-                    let mut data: [u8; 1024] = [0; 1024];
-                    loop {
-                        let read_bytes = valid_stream.read(&mut data).unwrap();
-                        if read_bytes != 0 {
-                            println!("rb: {:?}", read_bytes);
-                            let _ = valid_stream.write("+PONG\r\n".as_bytes());
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("error: {}", e);
                 }
             }
         }
