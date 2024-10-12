@@ -1,11 +1,17 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::prelude::*;
+use std::collections::HashMap;
 use crate::server::parser::RESPParser;
 use crate::server::interpreter::RESPInterpreter;
 
 pub struct Server {
     listener: TcpListener,
-    clients: Vec<TcpStream>
+    clients: Vec<Client>
+}
+
+pub struct Client {
+    pub client: TcpStream,
+    pub memory: HashMap<String, String>
 }
 
 impl Server {
@@ -22,14 +28,16 @@ impl Server {
         // 1. Do we have any new connection?
         // 2. Is any connection which we already have is sending something
         loop {
-            
             // Check 1 ie... for any new connection
             self.listener.set_nonblocking(true).unwrap();
             match self.listener.accept() {
                 Ok(stream) => {
                     println!("New connection found {:?}", stream.1);
                     stream.0.set_nonblocking(true).unwrap();
-                    self.clients.push(stream.0);
+                    self.clients.push(Client {
+                        client: stream.0,
+                        memory: std::collections::HashMap::new()
+                    });
                 },
                 Err(_) => {}
             }
@@ -37,7 +45,7 @@ impl Server {
             // Check 2 looping through every client and checking for new messages
             for client in &mut self.clients {
                 let mut data: [u8; 1024] = [0; 1024]; 
-                let data_read = client.read(&mut data);
+                let data_read = client.client.read(&mut data);
                 if let Ok(read_size) = data_read {
                     if read_size == 0 {
                         continue;
@@ -47,9 +55,9 @@ impl Server {
                         println!("message: {:?}", message);
                         let mut rp = RESPParser::new(&message);
                         let ds = rp.parse();
-                        let interpreter = RESPInterpreter::new(&message);
+                        let mut interpreter = RESPInterpreter::new(&message, &mut client.memory);
                         let response = interpreter.interpret(ds);
-                        let _ = client.write(response.as_bytes());
+                        let _ = client.client.write(response.as_bytes());
                     }
                 }
             }

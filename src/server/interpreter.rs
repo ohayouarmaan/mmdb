@@ -1,13 +1,16 @@
 use crate::server::parser::{DS, RedArray};
+use std::collections::HashMap;
 
-pub struct RESPInterpreter {
-    source_code: String
+pub struct RESPInterpreter<'a> {
+    source_code: String,
+    data_store: &'a mut HashMap<String, String>
 }
 
-impl RESPInterpreter {
-    pub fn new(src_code: &str) -> Self {
+impl<'a> RESPInterpreter<'a> {
+    pub fn new(src_code: &str, ds: &'a mut HashMap<String, String>) -> Self {
         Self {
-            source_code: src_code.to_string()
+            source_code: src_code.to_string(),
+            data_store: ds
         }
     }
 
@@ -59,7 +62,7 @@ impl RESPInterpreter {
         }
     }
 
-    pub fn interpret(&self, ds: DS) -> String {
+    pub fn interpret(&mut self, ds: DS) -> String {
         let cmd = self.build_command(ds);
         if let Err(_) = cmd {
             return "- Error while interpreting the message".to_string();
@@ -70,6 +73,64 @@ impl RESPInterpreter {
             match leader_cmd.as_str() {
                 "echo" => {
                     self.build_response(leader_args.first().expect("Expected an argument"))
+                },
+                "set" => {
+                    let key = leader_args.first().unwrap();
+                    let value = leader_args.get(1).expect("Expectend another argument");
+                    
+                    let key_string;
+                    match key {
+                        DS::String(start, end) => {
+                            key_string = self.source_code.get(*start..*end).unwrap();
+                        },
+                        _ => {
+                            return "-ERROR Expected the key to be a string".to_owned();
+                        }
+                    }
+
+                    let value_string;
+                    match value {
+                        DS::String(start, end) => {
+                            value_string = self.source_code.get(*start..*end).unwrap();
+                        },
+                        _ => {
+                            return "-ERROR Expected the value to be a string".to_owned();
+                        }
+                    }
+                    
+                    self.data_store.insert(key_string.to_owned(), value_string.to_owned());
+                    println!("ds: {:?}", self.data_store);
+                    return "+OK\r\n".to_string();
+                },
+                "get" => {
+                    let key = leader_args.first().unwrap();
+                    println!("key: {:?}", key);
+                    println!("ds: {:?}", self.data_store);
+                    let key_string;
+                    match key {
+                        DS::String(start, end) => {
+                            key_string = self.source_code.get(*start..*end).unwrap();
+                        },
+                        _ => {
+                            return "-ERROR Expected the key to be a string".to_owned();
+                        }
+                    }
+                    let mut response = String::from("$");
+                    match self.data_store.get(key_string) {
+                        Some(v) => {
+                            response.push_str(&format!("{}", v.len()));
+                            response.push_str("\r\n");
+                            response.push_str(v);
+                            response.push_str("\r\n");
+                            println!("ds: {:?}", self.data_store);
+                        },
+                        None => {
+                            response.push_str("-1");
+                            response.push_str("\r\n");
+                            println!("ds: {:?}", self.data_store);
+                        }
+                    }
+                    return response;
                 },
                 "ping" => {
                     return "+PONG\r\n".to_string();
