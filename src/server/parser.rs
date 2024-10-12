@@ -9,10 +9,21 @@ impl DS {
     pub fn debug(&self, source_code: &str) {
         match self {
             Self::String(start, end) => {
-                println!("{:?}", source_code.get(*start..*end));
+                println!("{:?}", source_code.get(*start..*end).expect("-ERROR Expected a value found nothing\r\n"));
             },
             _ => {
                 println!("{:?}", self);
+            }
+        }
+    }
+
+    pub fn get_value(&self, source_code: &str) -> String {
+        match self {
+            Self::String(start, end) => {
+                return source_code.get(*start..*end).expect("-ERROR Expected a value found nothing\r\n").to_owned();
+            },
+            _ => {
+                return format!("{:?}", self);
             }
         }
     }
@@ -31,11 +42,16 @@ pub struct RESPParser {
 }
 
 impl RESPParser {
-    pub fn new(source_code: &str) -> Self {
+    pub fn new() -> Self {
         Self {
-            source_code: source_code.to_string(),
+            source_code: String::from(""),
             current_index: 0
         }
+    }
+
+    pub fn register(&mut self, source_code: &str) {
+        self.source_code = source_code.to_string();
+        self.current_index = 0;
     }
 
     pub fn parse(&mut self) -> DS {

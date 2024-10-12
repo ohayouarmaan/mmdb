@@ -5,11 +5,17 @@ use crate::datastore::store::DataStore;
 use crate::server::parser::RESPParser;
 use crate::server::interpreter::RESPInterpreter;
 
+#[derive(Debug)]
+pub struct ServerOptions {
+    pub rdb_file_name: Option<std::path::PathBuf>,
+    pub rdb_dir_name: Option<std::path::PathBuf>,
+}
 
 pub struct Server {
     listener: TcpListener,
     clients: Vec<Client>,
-    store: DataStore
+    store: DataStore,
+    pub server_options: ServerOptions
 }
 
 pub struct Client {
@@ -17,11 +23,12 @@ pub struct Client {
 }
 
 impl Server {
-    pub fn new(address: &str) -> Self {
+    pub fn new(address: &str, server_opts: ServerOptions) -> Self {
         Self {
             listener: TcpListener::bind(address).unwrap(),
             clients: vec![],
-            store: DataStore::new()
+            store: DataStore::new(),
+            server_options: server_opts
         }
     }
 
@@ -30,6 +37,8 @@ impl Server {
         // things
         // 1. Do we have any new connection?
         // 2. Is any connection which we already have is sending something
+        let mut rp = RESPParser::new();
+        let mut interpreter = RESPInterpreter::new(&mut self.store, &mut self.server_options);
         loop {
             // Check 1 ie... for any new connection
             self.listener.set_nonblocking(true).unwrap();
@@ -54,9 +63,9 @@ impl Server {
                     } else {
                         let str_message = String::from_utf8(data.to_vec()).unwrap();
                         let message = str_message.trim().replace("\0", "");
-                        let mut rp = RESPParser::new(&message);
+                        rp.register(&message);
+                        interpreter.register(&message);
                         let ds = rp.parse();
-                        let mut interpreter = RESPInterpreter::new(&message, &mut self.store);
                         let response = interpreter.interpret(ds);
                         let _ = client.client.write(response.as_bytes());
                     }

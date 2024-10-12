@@ -1,10 +1,13 @@
 use crate::server::parser::DS;
 use crate::datastore::store::{DataItem, DataStore};
+use crate::server::server::ServerOptions;
+
 use std::time::{Duration, Instant};
 
 pub struct RESPInterpreter<'a> {
     source_code: String,
-    data_store: &'a mut DataStore
+    data_store: &'a mut DataStore,
+    server_options: &'a mut ServerOptions
 }
 
 pub struct SetOptions {
@@ -12,11 +15,16 @@ pub struct SetOptions {
 }
 
 impl<'a> RESPInterpreter<'a> {
-    pub fn new(src_code: &str, ds: &'a mut DataStore) -> Self {
+    pub fn new(ds: &'a mut DataStore, server_options: &'a mut ServerOptions) -> Self {
         Self {
-            source_code: src_code.to_string(),
-            data_store: ds
+            source_code: String::from(""),
+            data_store: ds,
+            server_options
         }
+    }
+
+    pub fn register(&mut self, src_code: &str) {
+        self.source_code = src_code.to_string();
     }
 
     fn build_command(&self, value: DS) -> Result<(String, Vec<DS>), ()> {
@@ -181,6 +189,63 @@ impl<'a> RESPInterpreter<'a> {
                         }
                     }
                     return response;
+                },
+                "config" => {
+                    let config_action = leader_args.pop_front();
+                    if let Some(ca) = config_action {
+                        if let DS::String(_, _) = ca {
+                            let action = ca.get_value(&self.source_code);
+                            match action.to_lowercase().as_str() {
+                                "get" => {
+                                    let config_key = leader_args.pop_front();
+                                    if let Some(key_ds) = config_key {
+                                        let key = key_ds.get_value(&self.source_code);
+                                        if key == "dir" {
+                                            let dir_name: String = self.server_options.rdb_dir_name.clone().expect("expected a directory name found nothing").as_path().to_str().expect("no dirname").to_owned();
+                                            return format!("*2\r\n$3\r\ndir\r\n${}\r\n{}\r\n", dir_name.len(), dir_name).to_owned();
+                                        } else if key == "dbfilename" {
+                                            let db_file_name: String = self.server_options.rdb_file_name.clone().expect("expected a file name found nothing").as_path().to_str().expect("no dbfilename").to_owned();
+                                            return format!("*2\r\n$10\r\ndbfilename\r\n${}\r\n{}\r\n", db_file_name.len(), db_file_name).to_owned();
+
+                                        } else {
+                                            return "".to_owned();
+                                        }
+
+                                    } else {
+                                        return "".to_owned();
+                                    }
+                                },
+                                "set" => {
+                                    let config_key = leader_args.pop_front();
+                                    if let Some(key_ds) = config_key {
+                                        let key = key_ds.get_value(&self.source_code);
+                                        if key == "dir" {
+                                            let new_dir_value = leader_args.pop_front().expect("Expected a value").get_value(&self.source_code);
+                                            self.server_options.rdb_dir_name = Some(std::path::PathBuf::from(new_dir_value));
+                                            return "+OK\r\n".to_owned();
+                                        } else if key == "dbfilename" {
+                                            let new_db_file_name_value = leader_args.pop_front().expect("Expected a value").get_value(&self.source_code);
+                                            self.server_options.rdb_file_name = Some(std::path::PathBuf::from(new_db_file_name_value));
+                                            return "+OK\r\n".to_owned();
+                                        } else {
+                                            return "-ERROR trying to set invalid config option\r\n".to_owned();
+                                        }
+
+                                    } else {
+                                        return "-ERROR no config key sent\r\n".to_owned();
+                                    }
+                                },
+                                c => {
+                                    println!("{:?}", c);
+                                    todo!("");
+                                },
+                            }
+                        } else {
+                            return "-ERROR config action invalid".to_owned();
+                        }
+                    } else {
+                        return "-ERROR config action invalid".to_owned();
+                    }
                 },
                 "ping" => {
                     return "+PONG\r\n".to_string();
