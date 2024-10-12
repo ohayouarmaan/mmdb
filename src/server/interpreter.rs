@@ -1,11 +1,10 @@
 use crate::server::parser::DS;
-use crate::server::server::DataItem;
-use std::collections::HashMap;
+use crate::datastore::store::{DataItem, DataStore};
 use std::time::{Duration, Instant};
 
 pub struct RESPInterpreter<'a> {
     source_code: String,
-    data_store: &'a mut HashMap<String, DataItem>
+    data_store: &'a mut DataStore
 }
 
 pub struct SetOptions {
@@ -13,7 +12,7 @@ pub struct SetOptions {
 }
 
 impl<'a> RESPInterpreter<'a> {
-    pub fn new(src_code: &str, ds: &'a mut HashMap<String, DataItem>) -> Self {
+    pub fn new(src_code: &str, ds: &'a mut DataStore) -> Self {
         Self {
             source_code: src_code.to_string(),
             data_store: ds
@@ -137,11 +136,10 @@ impl<'a> RESPInterpreter<'a> {
                         }
                     }
                     
-                    self.data_store.insert(key_string.to_owned(), DataItem {
+                    self.data_store.set(key_string.to_owned(), DataItem {
                         data: value_string.to_owned(),
                         expiry: args.expiry
                     });
-                    println!("ds: {:?}", self.data_store);
                     return "+OK\r\n".to_string();
                 },
                 "get" => {
@@ -156,12 +154,12 @@ impl<'a> RESPInterpreter<'a> {
                         }
                     }
                     let mut response = String::from("$");
-                    match self.data_store.get(key_string) {
+                    match self.data_store.get(key_string.to_string()) {
                         Some(v) => {
                             let current_time = Instant::now();
                             if let Some(expiry) = v.expiry {
                                 if expiry < current_time {
-                                    self.data_store.remove(key_string);
+                                    self.data_store.remove(key_string.to_string());
                                     response.push_str("-1");
                                     response.push_str("\r\n");
                                 } else {

@@ -1,32 +1,27 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::prelude::*;
-use std::collections::HashMap;
-use std::time::Instant;
 
+use crate::datastore::store::DataStore;
 use crate::server::parser::RESPParser;
 use crate::server::interpreter::RESPInterpreter;
 
-#[derive(Debug)]
-pub struct DataItem {
-    pub data: String,
-    pub expiry: Option<Instant>
-}
 
 pub struct Server {
     listener: TcpListener,
-    clients: Vec<Client>
+    clients: Vec<Client>,
+    store: DataStore
 }
 
 pub struct Client {
     pub client: TcpStream,
-    pub memory: HashMap<String, DataItem>
 }
 
 impl Server {
     pub fn new(address: &str) -> Self {
         Self {
             listener: TcpListener::bind(address).unwrap(),
-            clients: vec![]
+            clients: vec![],
+            store: DataStore::new()
         }
     }
 
@@ -44,7 +39,6 @@ impl Server {
                     stream.0.set_nonblocking(true).unwrap();
                     self.clients.push(Client {
                         client: stream.0,
-                        memory: std::collections::HashMap::new()
                     });
                 },
                 Err(_) => {}
@@ -60,10 +54,9 @@ impl Server {
                     } else {
                         let str_message = String::from_utf8(data.to_vec()).unwrap();
                         let message = str_message.trim().replace("\0", "");
-                        println!("message: {:?}", message);
                         let mut rp = RESPParser::new(&message);
                         let ds = rp.parse();
-                        let mut interpreter = RESPInterpreter::new(&message, &mut client.memory);
+                        let mut interpreter = RESPInterpreter::new(&message, &mut self.store);
                         let response = interpreter.interpret(ds);
                         let _ = client.client.write(response.as_bytes());
                     }

@@ -1,4 +1,6 @@
 mod server;
+mod datastore;
+
 use crate::server::Server;
 
 fn main() {
