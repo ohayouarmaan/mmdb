@@ -1,71 +1,93 @@
 #[derive(Debug)]
-pub enum SupportedDataTypes {
-    STRING(String),
-    NUMBER(f32)
+pub enum DS {
+    RedArray(RedArray),
+    Integer(u32),
+    String(usize, usize)
+}
+
+
+#[derive(Debug)]
+pub struct RedArray {
+    length: usize,
+    value: Vec<DS>
 }
 
 #[derive(Debug)]
-pub struct CommandArgument {
-    arg_type: SupportedDataTypes
+pub struct RESPParser {
+    source_code: String,
+    current_index: usize
 }
 
-impl ToString for CommandArgument {
-    fn to_string(&self) -> String {
-        match &self.arg_type {
-            SupportedDataTypes::STRING(x) => { return x.to_string() },
-            SupportedDataTypes::NUMBER(x) => {
-                return x.to_string();
-            }
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum CommandType {
-    ECHO(CommandArgument),
-    PING,
-}
-
-#[derive(Debug)]
-pub struct Command {
-    pub c_type: CommandType,
-}
-
-impl Command {
-    pub fn new(c_type: CommandType) -> Self {
+impl RESPParser {
+    pub fn new(source_code: &str) -> Self {
         Self {
-            c_type
+            source_code: source_code.to_string(),
+            current_index: 0
         }
     }
-    pub fn from_message(message: String) -> Self {
-        let cmds: Vec<&str> = message.split_whitespace().collect();
-        let leader = (*cmds.get(0).unwrap()).trim().to_lowercase();
-        println!("Leader: {:?}", leader);
-        if  leader == "echo" {
-            return Self {
-                c_type: CommandType::ECHO(CommandArgument {
-                    arg_type: SupportedDataTypes::STRING(String::from(*cmds.get(1).unwrap()))
-                })
+
+    pub fn parse(&mut self) -> DS {
+        let mut current_token = "";
+        match self.source_code.chars().nth(self.current_index).unwrap() {
+            '*' => {
+                // Parse Array
+                println!("PARSING ARRAY");
+                return self.parse_array();
+            },
+            '$' => {
+                println!("PARSING STRING");
+                return self.parse_string();
+            }, 
+            _ => {
+                return DS::Integer(2);
             }
-        } else {
-            return Self {
-                c_type: CommandType::PING
+        }
+        self.advance();
+        return DS::Integer(2);
+    }
+
+    fn advance(&mut self) {
+        if self.current_index < self.source_code.len() {
+            self.current_index += 1;
+            let mut curr_character = self.source_code.chars().nth(self.current_index).unwrap();
+            while curr_character == '\r' || curr_character == '\n' && self.current_index < self.source_code.len() {
+                self.current_index += 1;
+                match self.source_code.chars().nth(self.current_index) {
+                    None => {
+                        break;
+                    },
+                    Some(x) => {
+                        curr_character = x;
+                    }
+                };
             }
         }
     }
 
-    pub fn generate_response(&self) -> Vec<u8> {
-        match &self.c_type {
-            CommandType::ECHO(message) => {
-                if let SupportedDataTypes::STRING(echo_msg) = &message.arg_type {
-                    return (echo_msg.to_string() + "\r\n").as_bytes().to_vec();
-                }
-                return b"unsupported datatype\r\n".to_vec();
-            }
-
-            CommandType::PING => {
-                return b"+PONG\r\n".to_vec();
-            }
+    fn parse_array(&mut self) -> DS {
+        self.advance();
+        let number_of_elements = (self.source_code.chars().nth(self.current_index).unwrap()).to_digit(10).expect("Expected a number");
+        println!("NUMBER OF ELEMENTS: {:?}", number_of_elements);
+        self.advance();
+        let mut tokens: Vec<DS> = Vec::new();
+        for i in 0..number_of_elements {
+            println!("parsing {}", i);
+            tokens.push(self.parse());
         }
+        return DS::RedArray(RedArray {
+            length: number_of_elements as usize,
+            value: tokens
+        })
+    }
+
+    fn parse_string(&mut self) -> DS {
+        self.advance();
+        let str_len = (self.source_code.chars().nth(self.current_index).unwrap()).to_digit(10).expect("Expected a number") as usize;
+        self.advance();
+        println!("Str len: {:?}", str_len);
+        self.current_index += str_len;
+        println!("parsed_string: {:?}", self.source_code.get((self.current_index - str_len)..self.current_index));
+        self.advance();
+        return DS::String(self.current_index - str_len, self.current_index - 2);
     }
 }

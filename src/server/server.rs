@@ -1,6 +1,6 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::prelude::*;
-use crate::server::parser::Command;
+use crate::server::parser::RESPParser;
 
 pub struct Server {
     listener: TcpListener,
@@ -41,10 +41,13 @@ impl Server {
                     if read_size == 0 {
                         continue;
                     } else {
-                        let message = String::from_utf8(data.to_vec()).unwrap();
-                        let cmd = Command::from_message(message);
-                        let response = cmd.generate_response();
-                        let _ = client.write(&response);
+                        let str_message = String::from_utf8(data.to_vec()).unwrap();
+                        let message = str_message.trim().replace("\0", "");
+                        println!("message: {:?}", message);
+                        let mut rp = RESPParser::new(&message);
+                        let ds = rp.parse();
+                        println!("DS: {:?}", ds);
+                        let _ = client.write(b"+PONG\r\n");
                     }
                 }
             }
