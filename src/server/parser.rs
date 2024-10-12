@@ -5,6 +5,18 @@ pub enum DS {
     String(usize, usize)
 }
 
+impl DS {
+    pub fn debug(&self, source_code: &str) {
+        match self {
+            Self::String(start, end) => {
+                println!("{:?}", source_code.get(*start..*end));
+            },
+            _ => {
+                println!("{:?}", self);
+            }
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct RedArray {

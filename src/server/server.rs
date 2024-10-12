@@ -1,8 +1,16 @@
 use std::net::{TcpListener, TcpStream};
 use std::io::prelude::*;
 use std::collections::HashMap;
+use std::time::Instant;
+
 use crate::server::parser::RESPParser;
 use crate::server::interpreter::RESPInterpreter;
+
+#[derive(Debug)]
+pub struct DataItem {
+    pub data: String,
+    pub expiry: Option<Instant>
+}
 
 pub struct Server {
     listener: TcpListener,
@@ -11,7 +19,7 @@ pub struct Server {
 
 pub struct Client {
     pub client: TcpStream,
-    pub memory: HashMap<String, String>
+    pub memory: HashMap<String, DataItem>
 }
 
 impl Server {

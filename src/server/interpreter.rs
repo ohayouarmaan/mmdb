@@ -1,13 +1,19 @@
-use crate::server::parser::{DS, RedArray};
+use crate::server::parser::DS;
+use crate::server::server::DataItem;
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 pub struct RESPInterpreter<'a> {
     source_code: String,
-    data_store: &'a mut HashMap<String, String>
+    data_store: &'a mut HashMap<String, DataItem>
+}
+
+pub struct SetOptions {
+    expiry: Option<Instant>
 }
 
 impl<'a> RESPInterpreter<'a> {
-    pub fn new(src_code: &str, ds: &'a mut HashMap<String, String>) -> Self {
+    pub fn new(src_code: &str, ds: &'a mut HashMap<String, DataItem>) -> Self {
         Self {
             source_code: src_code.to_string(),
             data_store: ds
@@ -69,19 +75,19 @@ impl<'a> RESPInterpreter<'a> {
         } else {
             let v = cmd.unwrap();
             let leader_cmd = v.0;
-            let leader_args = v.1;
+            let mut leader_args = std::collections::VecDeque::from(v.1);
             match leader_cmd.as_str() {
                 "echo" => {
-                    self.build_response(leader_args.first().expect("Expected an argument"))
+                    self.build_response(leader_args.front().expect("Expected an argument"))
                 },
                 "set" => {
-                    let key = leader_args.first().unwrap();
-                    let value = leader_args.get(1).expect("Expectend another argument");
+                    let key = leader_args.pop_front().unwrap();
+                    let value = leader_args.pop_front().expect("Expectend another argument");
                     
                     let key_string;
                     match key {
                         DS::String(start, end) => {
-                            key_string = self.source_code.get(*start..*end).unwrap();
+                            key_string = self.source_code.get(start..end).unwrap();
                         },
                         _ => {
                             return "-ERROR Expected the key to be a string".to_owned();
@@ -91,21 +97,55 @@ impl<'a> RESPInterpreter<'a> {
                     let value_string;
                     match value {
                         DS::String(start, end) => {
-                            value_string = self.source_code.get(*start..*end).unwrap();
+                            value_string = self.source_code.get(start..end).unwrap();
                         },
                         _ => {
                             return "-ERROR Expected the value to be a string".to_owned();
                         }
                     }
                     
-                    self.data_store.insert(key_string.to_owned(), value_string.to_owned());
+                    let mut args = SetOptions {
+                        expiry: None
+                    };
+                    
+                    if leader_args.len() != 0 {
+                        while let Some(current_option) = leader_args.pop_front() {
+                            match current_option {
+                                DS::String(start, end) => {
+                                    match self.source_code.get(start..end).unwrap().to_lowercase().as_str() {
+                                        "px" => {
+                                            let d = leader_args.pop_front().unwrap();
+                                            if let DS::String(duration_start, duration_end) = d {
+                                                let x: u64 = self.source_code.get(duration_start..duration_end)
+                                                    .expect("")
+                                                    .to_owned()
+                                                    .parse::<u64>()
+                                                    .unwrap();
+                                                
+                                                let current_time = Instant::now();
+                                                let expiry_time = current_time + Duration::from_millis(x);
+                                                args.expiry = Some(expiry_time);
+                                            }
+                                        },
+                                        _ => {}
+                                    }
+                                },
+                                _ => {
+                                    return "-ERROR Invalid argument type".to_owned();
+                                }
+                            }
+                        }
+                    }
+                    
+                    self.data_store.insert(key_string.to_owned(), DataItem {
+                        data: value_string.to_owned(),
+                        expiry: args.expiry
+                    });
                     println!("ds: {:?}", self.data_store);
                     return "+OK\r\n".to_string();
                 },
                 "get" => {
-                    let key = leader_args.first().unwrap();
-                    println!("key: {:?}", key);
-                    println!("ds: {:?}", self.data_store);
+                    let key = leader_args.front().unwrap();
                     let key_string;
                     match key {
                         DS::String(start, end) => {
@@ -118,16 +158,28 @@ impl<'a> RESPInterpreter<'a> {
                     let mut response = String::from("$");
                     match self.data_store.get(key_string) {
                         Some(v) => {
-                            response.push_str(&format!("{}", v.len()));
-                            response.push_str("\r\n");
-                            response.push_str(v);
-                            response.push_str("\r\n");
-                            println!("ds: {:?}", self.data_store);
+                            let current_time = Instant::now();
+                            if let Some(expiry) = v.expiry {
+                                if expiry < current_time {
+                                    self.data_store.remove(key_string);
+                                    response.push_str("-1");
+                                    response.push_str("\r\n");
+                                } else {
+                                    response.push_str(&format!("{}", v.data.len()));
+                                    response.push_str("\r\n");
+                                    response.push_str(&v.data);
+                                    response.push_str("\r\n");
+                                }
+                            } else {
+                                response.push_str(&format!("{}", v.data.len()));
+                                response.push_str("\r\n");
+                                response.push_str(&v.data);
+                                response.push_str("\r\n");
+                            }
                         },
                         None => {
                             response.push_str("-1");
                             response.push_str("\r\n");
-                            println!("ds: {:?}", self.data_store);
                         }
                     }
                     return response;
