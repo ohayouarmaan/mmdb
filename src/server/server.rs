@@ -5,7 +5,7 @@ use crate::datastore::store::DataStore;
 use crate::server::parser::RESPParser;
 use crate::server::interpreter::RESPInterpreter;
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct ServerOptions {
     pub rdb_file_name: Option<std::path::PathBuf>,
     pub rdb_dir_name: Option<std::path::PathBuf>,
@@ -23,12 +23,24 @@ pub struct Client {
 }
 
 impl Server {
-    pub fn new(address: &str, server_opts: ServerOptions) -> Self {
-        Self {
-            listener: TcpListener::bind(address).unwrap(),
-            clients: vec![],
-            store: DataStore::new(),
-            server_options: server_opts
+    pub fn new(address: &str, server_opts: ServerOptions, ds: Option<DataStore>) -> Self {
+        match ds {
+            Some(data) => {
+                Self {
+                    listener: TcpListener::bind(address).unwrap(),
+                    clients: vec![],
+                    store: data,
+                    server_options: server_opts
+                }
+            },
+            None => {
+                Self {
+                    listener: TcpListener::bind(address).unwrap(),
+                    clients: vec![],
+                    store: DataStore::new(),
+                    server_options: server_opts
+                }
+            }
         }
     }
 

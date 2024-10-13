@@ -7,7 +7,7 @@ pub struct DataItem {
 }
 
 pub struct DataStore {
-    memory: HashMap<String, DataItem>
+    pub memory: HashMap<String, DataItem>
 }
 
 impl DataStore {

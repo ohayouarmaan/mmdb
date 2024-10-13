@@ -1,7 +1,11 @@
 mod server;
 mod datastore;
+mod rdb;
+
+use datastore::store::DataStore;
 
 use crate::server::{Server, ServerOptions};
+use crate::rdb::rdb::RDBFileHelper;
 
 use std::collections::VecDeque;
 
@@ -24,6 +28,17 @@ fn main() {
     }
 
     println!("Server Options: {:?}", server_options);
-    let mut server = Server::new("127.0.0.1:6379", server_options);
+    let mut rdb_helper = RDBFileHelper::new(server_options.clone());
+    let exisisting_db = match rdb_helper.decode_kv_table() {
+        Ok(x) => {
+            DataStore {
+                memory: x
+            }
+        },
+        Err(_) => {
+            DataStore::new()
+        }
+    };
+    let mut server = Server::new("127.0.0.1:6379", server_options, Some(exisisting_db));
     server.run_event_loop();
 }

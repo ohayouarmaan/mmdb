@@ -10,6 +10,12 @@ pub struct RESPInterpreter<'a> {
     server_options: &'a mut ServerOptions
 }
 
+pub enum Reply {
+    ReplyArray(Vec<Reply>),
+    ReplyBulkString(String),
+    ReplyString(String),
+}
+
 pub struct SetOptions {
     expiry: Option<Instant>
 }
@@ -31,7 +37,7 @@ impl<'a> RESPInterpreter<'a> {
         match value {
             DS::RedArray(a) => {
                 if let Some(command) = a.value.first() {
-                    if let DS::String(start, end) = command {
+                    if let DS::BulkString(start, end) = command {
                         Ok(
                             (
                                 self.source_code.get(*start..*end).unwrap().to_lowercase().to_string(),
@@ -61,15 +67,52 @@ impl<'a> RESPInterpreter<'a> {
             },
             DS::Integer(x) => {
                 return format!("{}\r\n", x);
-            }
+            },
             DS::RedArray(x) => {
-                let mut response = String::from("[");
+                let mut response = String::from("*");
+                response.push_str(&(x.value.len() as u8).to_string());
+                response.push_str("\r\n");
                 for d in &x.value {
                     let x = self.build_response(&d);
                     response.push_str(&x);
-                    response.push_str(" ");
                 }
-                response.push_str("]");
+                return response;
+            },
+            DS::BulkString(start, end) => {
+                let mut response = String::from("$");
+                response.push_str(&(end - start).to_string());
+                response.push_str("\r\n");
+                response.push_str(&(self.source_code[*start..*end]).to_string());
+                response.push_str("\r\n");
+                return response;
+            }
+        }
+    }
+
+    pub fn build_reply(&mut self, reply: &Reply) -> String {
+        match reply {
+            Reply::ReplyString(s) => {
+                let mut response = String::from("+");
+                response.push_str(&(s).to_string());
+                response.push_str("\r\n");
+                return response;
+            },
+            Reply::ReplyArray(arr_data) => {
+                let mut response = String::from("*");
+                response.push_str(&(arr_data.len() as u8).to_string());
+                response.push_str("\r\n");
+                for d in arr_data {
+                    let x = self.build_reply(d);
+                    response.push_str(&x);
+                }
+                return response;
+            },
+            Reply::ReplyBulkString(s) => {
+                let mut response = String::from("$");
+                response.push_str(&(s.len()).to_string());
+                response.push_str("\r\n");
+                response.push_str(&(s).to_string());
+                response.push_str("\r\n");
                 return response;
             }
         }
@@ -93,7 +136,7 @@ impl<'a> RESPInterpreter<'a> {
                     
                     let key_string;
                     match key {
-                        DS::String(start, end) => {
+                        DS::BulkString(start, end) => {
                             key_string = self.source_code.get(start..end).unwrap();
                         },
                         _ => {
@@ -103,7 +146,7 @@ impl<'a> RESPInterpreter<'a> {
 
                     let value_string;
                     match value {
-                        DS::String(start, end) => {
+                        DS::BulkString(start, end) => {
                             value_string = self.source_code.get(start..end).unwrap();
                         },
                         _ => {
@@ -118,11 +161,11 @@ impl<'a> RESPInterpreter<'a> {
                     if leader_args.len() != 0 {
                         while let Some(current_option) = leader_args.pop_front() {
                             match current_option {
-                                DS::String(start, end) => {
+                                DS::BulkString(start, end) => {
                                     match self.source_code.get(start..end).unwrap().to_lowercase().as_str() {
                                         "px" => {
                                             let d = leader_args.pop_front().unwrap();
-                                            if let DS::String(duration_start, duration_end) = d {
+                                            if let DS::BulkString(duration_start, duration_end) = d {
                                                 let x: u64 = self.source_code.get(duration_start..duration_end)
                                                     .expect("")
                                                     .to_owned()
@@ -154,7 +197,7 @@ impl<'a> RESPInterpreter<'a> {
                     let key = leader_args.front().unwrap();
                     let key_string;
                     match key {
-                        DS::String(start, end) => {
+                        DS::BulkString(start, end) => {
                             key_string = self.source_code.get(*start..*end).unwrap();
                         },
                         _ => {
@@ -193,7 +236,8 @@ impl<'a> RESPInterpreter<'a> {
                 "config" => {
                     let config_action = leader_args.pop_front();
                     if let Some(ca) = config_action {
-                        if let DS::String(_, _) = ca {
+                        println!("ca: {:?}", ca.get_value(&self.source_code));
+                        if let DS::BulkString(_, _) = ca {
                             let action = ca.get_value(&self.source_code);
                             match action.to_lowercase().as_str() {
                                 "get" => {
@@ -246,6 +290,10 @@ impl<'a> RESPInterpreter<'a> {
                     } else {
                         return "-ERROR config action invalid".to_owned();
                     }
+                },
+                "keys" => {
+                    let keys = self.data_store.memory.keys().map(|x| Reply::ReplyBulkString(x.to_string())).collect::<Vec<Reply>>();
+                    return self.build_reply(&Reply::ReplyArray(keys));
                 },
                 "ping" => {
                     return "+PONG\r\n".to_string();

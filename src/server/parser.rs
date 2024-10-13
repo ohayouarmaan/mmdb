@@ -2,7 +2,8 @@
 pub enum DS {
     RedArray(RedArray),
     Integer(u32),
-    String(usize, usize)
+    String(usize, usize),
+    BulkString(usize, usize)
 }
 
 impl DS {
@@ -19,7 +20,7 @@ impl DS {
 
     pub fn get_value(&self, source_code: &str) -> String {
         match self {
-            Self::String(start, end) => {
+            Self::BulkString(start, end) => {
                 return source_code.get(*start..*end).expect("-ERROR Expected a value found nothing\r\n").to_owned();
             },
             _ => {
@@ -121,6 +122,6 @@ impl RESPParser {
         self.advance();
         self.current_index += str_len;
         
-        return DS::String(self.current_index - str_len, self.current_index);
+        return DS::BulkString(self.current_index - str_len, self.current_index);
     }
 }
