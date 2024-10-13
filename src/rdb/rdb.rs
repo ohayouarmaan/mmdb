@@ -1,3 +1,4 @@
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use std::{fs, path};
 use std::collections::{VecDeque,HashMap};
 
@@ -61,7 +62,21 @@ impl RDBFileHelper {
         let mut kv_table = VecDeque::from(self.get_kv_table()?);
         let mut data_stored: HashMap<String, DataItem> = HashMap::new();
         while let Some(mut key_length) = kv_table.pop_front() {
+            let mut expiry_value: Option<SystemTime> = None;
+            if key_length == 0xfc {
+                let mut exp: [u8; 8] = [0; 8];
+                for i in 0..8 {
+                    let v = kv_table.pop_front().ok_or(())?;
+                    exp[i] = v;
+                }
+                let exp = u64::from_le_bytes(exp);
+                let system_time = UNIX_EPOCH + Duration::from_millis(exp);
+                expiry_value = Some(system_time);
+            }
             key_length = kv_table.pop_front().ok_or(())?;
+            if key_length == 0 {
+                key_length = kv_table.pop_front().ok_or(())?;
+            }
             let mut key_string = String::from("");
             for _ in 0..key_length {
                 let f = kv_table.pop_front().ok_or(())?;
@@ -76,7 +91,7 @@ impl RDBFileHelper {
             }
             data_stored.insert(key_string, DataItem {
                 data: value_string,
-                expiry: None
+                expiry: expiry_value
             });
         }
         Ok(data_stored)

@@ -2,7 +2,7 @@ use crate::server::parser::DS;
 use crate::datastore::store::{DataItem, DataStore};
 use crate::server::server::ServerOptions;
 
-use std::time::{Duration, Instant};
+use std::time::{Duration, SystemTime};
 
 pub struct RESPInterpreter<'a> {
     source_code: String,
@@ -17,7 +17,7 @@ pub enum Reply {
 }
 
 pub struct SetOptions {
-    expiry: Option<Instant>
+    expiry: Option<SystemTime>
 }
 
 impl<'a> RESPInterpreter<'a> {
@@ -172,9 +172,7 @@ impl<'a> RESPInterpreter<'a> {
                                                     .parse::<u64>()
                                                     .unwrap();
                                                 
-                                                let current_time = Instant::now();
-                                                let expiry_time = current_time + Duration::from_millis(x);
-                                                args.expiry = Some(expiry_time);
+                                                args.expiry = Some(SystemTime::now() + Duration::from_millis(x));
                                             }
                                         },
                                         _ => {}
@@ -207,7 +205,7 @@ impl<'a> RESPInterpreter<'a> {
                     let mut response = String::from("$");
                     match self.data_store.get(key_string.to_string()) {
                         Some(v) => {
-                            let current_time = Instant::now();
+                            let current_time = SystemTime::now();
                             if let Some(expiry) = v.expiry {
                                 if expiry < current_time {
                                     self.data_store.remove(key_string.to_string());
@@ -236,7 +234,6 @@ impl<'a> RESPInterpreter<'a> {
                 "config" => {
                     let config_action = leader_args.pop_front();
                     if let Some(ca) = config_action {
-                        println!("ca: {:?}", ca.get_value(&self.source_code));
                         if let DS::BulkString(_, _) = ca {
                             let action = ca.get_value(&self.source_code);
                             match action.to_lowercase().as_str() {

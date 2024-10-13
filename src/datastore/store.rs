@@ -1,9 +1,9 @@
-use std::{collections::HashMap, time::Instant};
+use std::{collections::HashMap, time::SystemTime};
 
 #[derive(Debug)]
 pub struct DataItem {
     pub data: String,
-    pub expiry: Option<Instant>
+    pub expiry: Option<SystemTime>
 }
 
 pub struct DataStore {
