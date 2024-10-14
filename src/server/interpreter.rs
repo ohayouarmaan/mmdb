@@ -289,6 +289,19 @@ impl<'a> RESPInterpreter<'a> {
                     let keys = self.data_store.memory.keys().map(|x| Reply::ReplyBulkString(x.to_string())).collect::<Vec<Reply>>();
                     return self.build_reply(&Reply::ReplyArray(keys));
                 },
+                "info" => {
+                    let argument = leader_args.pop_front();
+                    match argument {
+                        Some(DS::BulkString(start, end)) => {
+                            let _info_about = self.source_code.get(start..end).to_owned().expect("Expected a value for replication");
+                            let role = format!("role:{}", (self.server_options.server_type.clone()).unwrap_or("slave".to_string()));
+                            self.build_reply(&Reply::ReplyBulkString(role.to_string()))
+                        }
+                        _ => {
+                            self.build_reply(&Reply::ReplyString("-invalid argument for `info` command".to_string()))
+                        }
+                    }
+                },
                 "ping" => {
                     return "+PONG\r\n".to_string();
                 },

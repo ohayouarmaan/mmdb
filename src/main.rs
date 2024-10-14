@@ -15,7 +15,8 @@ fn main() {
     let mut server_options: ServerOptions = ServerOptions {
         rdb_file_name: None,
         rdb_dir_name: None,
-        port: None
+        port: None,
+        server_type: Some("master".to_string())
     };
     while let Some(option) = args.pop_front() {
         if option == "--dir" {
