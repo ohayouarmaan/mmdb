@@ -4,7 +4,7 @@ mod rdb;
 
 use datastore::store::DataStore;
 
-use crate::server::{Server, ServerOptions};
+use crate::server::{Server, ServerOptions, ServerRole};
 use crate::rdb::rdb::RDBFileHelper;
 
 use std::collections::VecDeque;
@@ -16,7 +16,7 @@ fn main() {
         rdb_file_name: None,
         rdb_dir_name: None,
         port: None,
-        server_type: Some("master".to_string())
+        server_role: Some(ServerRole::Master)
     };
     while let Some(option) = args.pop_front() {
         if option == "--dir" {
@@ -31,6 +31,13 @@ fn main() {
         if option == "--port" {
             let port = args.pop_front().expect("Expected a value to be passed for port");
             server_options.port = Some(port.parse().expect("Expected a number"));
+        }
+        if option == "--replicaof" {
+            let replica_of: Vec<String> = args.pop_front().expect("Expected a value to be passed for port").split(" ").map(|x| x.to_string()).collect();
+            server_options.server_role = Some(ServerRole::Slave(server::SlaveServerOptions{
+                master_host: replica_of.get(0).unwrap_or(&"localhost".to_string()).to_string(),
+                master_port: replica_of[1].parse().unwrap_or(6379)
+            }))
         }
     }
 

@@ -1,6 +1,6 @@
 use crate::server::parser::DS;
 use crate::datastore::store::{DataItem, DataStore};
-use crate::server::server::ServerOptions;
+use crate::server::server::{ServerOptions, ServerRole};
 
 use std::time::{Duration, SystemTime};
 
@@ -294,8 +294,14 @@ impl<'a> RESPInterpreter<'a> {
                     match argument {
                         Some(DS::BulkString(start, end)) => {
                             let _info_about = self.source_code.get(start..end).to_owned().expect("Expected a value for replication");
-                            let role = format!("role:{}", (self.server_options.server_type.clone()).unwrap_or("slave".to_string()));
-                            self.build_reply(&Reply::ReplyBulkString(role.to_string()))
+                            match &self.server_options.server_role {
+                                Some(ServerRole::Slave(_slave_option)) => {
+                                    self.build_reply(&Reply::ReplyBulkString("role:slave".to_string()))
+                                }
+                                _ => {
+                                    self.build_reply(&Reply::ReplyBulkString("role:master".to_string()))
+                                }
+                            }
                         }
                         _ => {
                             self.build_reply(&Reply::ReplyString("-invalid argument for `info` command".to_string()))

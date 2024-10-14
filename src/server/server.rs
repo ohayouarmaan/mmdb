@@ -6,11 +6,23 @@ use crate::server::parser::RESPParser;
 use crate::server::interpreter::RESPInterpreter;
 
 #[derive(Debug,Clone)]
+pub struct SlaveServerOptions {
+    pub master_host: String,
+    pub master_port: u32,
+}
+
+#[derive(Debug,Clone)]
+pub enum ServerRole {
+    Master,
+    Slave(SlaveServerOptions)
+}
+
+#[derive(Debug,Clone)]
 pub struct ServerOptions {
     pub rdb_file_name: Option<std::path::PathBuf>,
     pub rdb_dir_name: Option<std::path::PathBuf>,
     pub port: Option<u32>,
-    pub server_type: Option<String>
+    pub server_role: Option<ServerRole>
 }
 
 pub struct Server {
