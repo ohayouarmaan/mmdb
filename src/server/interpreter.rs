@@ -65,9 +65,6 @@ impl<'a> RESPInterpreter<'a> {
                 response.push_str("\r\n");
                 return response;
             },
-            DS::Integer(x) => {
-                return format!("{}\r\n", x);
-            },
             DS::RedArray(x) => {
                 let mut response = String::from("*");
                 response.push_str(&(x.value.len() as u8).to_string());

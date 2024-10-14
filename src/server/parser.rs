@@ -1,7 +1,6 @@
 #[derive(Debug)]
 pub enum DS {
     RedArray(RedArray),
-    Integer(u32),
     String(usize, usize),
     BulkString(usize, usize)
 }
@@ -26,6 +25,20 @@ impl DS {
             _ => {
                 return format!("{:?}", self);
             }
+        }
+    }
+
+    pub fn get_type(&self) -> String {
+        match self {
+            Self::String(_, _) => {
+                return String::from("string");
+            },
+            Self::BulkString(_, _) => {
+                return String::from("string");
+            },
+            Self::RedArray(_) => {
+                return String::from("list");
+            },
         }
     }
 }
@@ -68,7 +81,8 @@ impl RESPParser {
                 return s;
             }, 
             _ => {
-                return DS::Integer(2);
+                unreachable!("THIS SHOULD NOT BE THE CASE");
+                //return DS::Integer(2);
             }
         }
     }

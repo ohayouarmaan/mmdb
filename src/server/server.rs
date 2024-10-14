@@ -9,6 +9,7 @@ use crate::server::interpreter::RESPInterpreter;
 pub struct ServerOptions {
     pub rdb_file_name: Option<std::path::PathBuf>,
     pub rdb_dir_name: Option<std::path::PathBuf>,
+    pub port: Option<u32>,
 }
 
 pub struct Server {
