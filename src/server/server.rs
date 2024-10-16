@@ -4,6 +4,7 @@ use std::io::prelude::*;
 use crate::datastore::store::DataStore;
 use crate::server::parser::RESPParser;
 use crate::server::interpreter::{RESPInterpreter, Reply};
+use crate::server::client_replication_interpreter::ReplicationInterpreter;
 use crate::helpers::Helper;
 
 #[derive(Debug,Clone)]
@@ -72,7 +73,7 @@ impl Server {
         match &self.server_options.server_role {
             Some(ServerRole::Slave(slave_options)) => {
                 let mut master_connection_stream = TcpStream::connect(format!("{}:{}", slave_options.master_host, slave_options.master_port)).unwrap();
-                master_connection_stream.write(Helper::build_resp(&Reply::ReplyArray(vec![Reply::ReplyBulkString("PING".to_string())])).as_bytes());
+                let _ = master_connection_stream.write(Helper::build_resp(&Reply::ReplyArray(vec![Reply::ReplyBulkString("PING".to_string())])).as_bytes());
                 self.replication_stream = Some(master_connection_stream);
             }
             _ => {}
@@ -80,11 +81,13 @@ impl Server {
     }
 
     pub fn run_event_loop(&mut self) {
-        // Firstly, we will have to loop indefinitely and in every step we will check for two
+        // Firstly, we will have to loop indefinitely and in every step we will check for three
         // things
         // 1. Do we have any new connection?
-        // 2. Is any connection which we already have is sending something
+        // 2. Is any connection which we already have is sending something?
+        // 3. Are we getting any new message from the replication_stream?
         let mut rp = RESPParser::new();
+        let mut client_interpreter = ReplicationInterpreter::new(None, &self.server_options.port.unwrap_or(6379));
         let mut interpreter = RESPInterpreter::new(&mut self.store, &mut self.server_options);
         loop {
             // Check 1 ie... for any new connection
@@ -117,6 +120,27 @@ impl Server {
                         let _ = client.client.write(response.as_bytes());
                     }
                 }
+            }
+
+            match &mut self.replication_stream {
+                Some(replication_stream) => {
+                    let mut replication_data: [u8; 1024] = [0; 1024];
+                    let replication_data_read = replication_stream.read(&mut replication_data);
+                    if let Ok(read_size) = replication_data_read {
+                        if read_size != 0 {
+                            let str_message = String::from_utf8(replication_data.to_vec()).unwrap();
+                            let message = str_message.trim().replace("\0", "");
+                            rp.register(&message);
+                            let ds = rp.parse();
+                            client_interpreter.register(ds, &message);
+                            let response = client_interpreter.interpret();
+                            if let Some(response) = response {
+                                let _ = replication_stream.write(response.as_bytes());
+                            }
+                        }
+                    }
+                }
+                None => {}
             }
         }
     }

@@ -9,7 +9,7 @@ impl DS {
     pub fn debug(&self, source_code: &str) {
         match self {
             Self::String(start, end) => {
-                println!("{:?}", source_code.get(*start..*end).expect("-ERROR Expected a value found nothing\r\n"));
+                println!("string: {:?}", source_code.get(*start..*end).expect("-ERROR Expected a value found nothing\r\n"));
             },
             _ => {
                 println!("{:?}", self);
@@ -20,6 +20,9 @@ impl DS {
     pub fn get_value(&self, source_code: &str) -> String {
         match self {
             Self::BulkString(start, end) => {
+                return source_code.get(*start..*end).expect("-ERROR Expected a value found nothing\r\n").to_owned();
+            },
+            Self::String(start, end) => {
                 return source_code.get(*start..*end).expect("-ERROR Expected a value found nothing\r\n").to_owned();
             },
             _ => {
@@ -80,11 +83,38 @@ impl RESPParser {
                 self.advance();
                 return s;
             }, 
-            _ => {
-                unreachable!("THIS SHOULD NOT BE THE CASE");
+            '+' => {
+                self.parse_simple_string()
+            }
+            c => {
+                unreachable!("found: {}", c);
                 //return DS::Integer(2);
             }
         }
+    }
+
+    fn parse_simple_string(&mut self) -> DS {
+        self.advance();
+        let mut end_index = 0;
+        let start_index = self.current_index;
+        loop {
+            match self.source_code.chars().nth(self.current_index) {
+                Some(curr_character) => {
+                    if curr_character == '\r' {
+                        self.advance();
+                        let curr_character = self.source_code.chars().nth(self.current_index).unwrap();
+                        if curr_character == '\n' {
+                            self.advance();
+                            break
+                        }
+                    }
+                    end_index += 1;
+                    self.advance();
+                },
+                None => break
+            };
+        }
+        return DS::String(start_index, start_index + end_index)
     }
 
     fn advance(&mut self) {

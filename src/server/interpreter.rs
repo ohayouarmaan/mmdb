@@ -288,7 +288,7 @@ impl<'a> RESPInterpreter<'a> {
                     return "+PONG\r\n".to_string();
                 },
                 _ => {
-                    return "-ERROR Unknown command".to_string();
+                    return "+OK\r\n".to_string();
                 }
             }
         }
