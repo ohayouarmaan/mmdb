@@ -120,7 +120,7 @@ impl RESPParser {
     fn advance(&mut self) {
         if self.current_index < self.source_code.len() {
             self.current_index += 1;
-            let mut curr_character = self.source_code.chars().nth(self.current_index).unwrap();
+            let mut curr_character = self.source_code.chars().nth(self.current_index).unwrap_or_else(|| panic!("AAAAAAAA: {}", self.source_code));
             while curr_character == '\r' || curr_character == '\n' && self.current_index < self.source_code.len() {
                 self.current_index += 1;
                 match self.source_code.chars().nth(self.current_index) {

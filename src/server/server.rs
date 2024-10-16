@@ -90,9 +90,12 @@ impl Server {
         let mut rp = RESPParser::new();
         let mut client_interpreter = ReplicationInterpreter::new(None, &self.server_options.port.unwrap_or(6379));
         let mut interpreter = RESPInterpreter::new(&mut self.store, &mut self.server_options);
+        self.listener.set_nonblocking(true).unwrap();
+        if let Some(rs) = &self.replication_stream {
+            let _ = rs.set_nonblocking(true);
+        }
         loop {
             // Check 1 ie... for any new connection
-            self.listener.set_nonblocking(true).unwrap();
             match self.listener.accept() {
                 Ok(stream) => {
                     println!("New connection found {:?}", stream.1);
@@ -129,7 +132,8 @@ impl Server {
                     let replication_data_read = replication_stream.read(&mut replication_data);
                     if let Ok(read_size) = replication_data_read {
                         if read_size != 0 {
-                            let str_message = String::from_utf8(replication_data.to_vec()).unwrap();
+                            let str_message = String::from_utf8_lossy(&replication_data);
+                            println!("STR_MESSAGE: {:?}", str_message);
                             let message = str_message.trim().replace("\0", "");
                             rp.register(&message);
                             let ds = rp.parse();

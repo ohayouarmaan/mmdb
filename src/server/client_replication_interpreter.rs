@@ -87,7 +87,6 @@ impl ReplicationInterpreter {
                             ))
                         },
                         c => {
-                            println!("FOUND COMMAND: {}", c);
                             Some(Helper::build_resp(
                                 &Reply::ReplyBulkString("-ERROR Invalid Command".to_string())
                             ))
