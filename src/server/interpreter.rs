@@ -287,11 +287,7 @@ impl<'a> RESPInterpreter<'a> {
                 "psync" => {
                     match &self.server_options.server_role {
                         Some(ServerRole::Master(Some(master_options))) => {
-                            Helper::build_resp(&Reply::ReplyArray(vec!(
-                                Reply::ReplyString("FULLRESYNC".to_string()),
-                                Reply::ReplyBulkString(master_options.master_replid.clone()),
-                                Reply::ReplyBulkString(master_options.master_repl_offset.to_string())
-                            )))
+                            Helper::build_resp(&Reply::ReplyBulkString(format!("FULLRESYNC {} {}", master_options.master_replid, master_options.master_repl_offset)))
                         },
                         _ => {
                             Helper::build_resp(&Reply::ReplyBulkString("-Error can only ask for psync from master".to_string()))

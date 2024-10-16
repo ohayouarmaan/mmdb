@@ -83,7 +83,7 @@ impl ReplicationInterpreter {
                         },
                         "fullresync" => {
                             Some(Helper::build_resp(
-                                &Reply::ReplyBulkString("".to_string())
+                                &Reply::ReplyString("OK".to_string())
                             ))
                         },
                         c => {
