@@ -19,6 +19,7 @@ pub struct MasterServerOptions {
     pub master_repl_offset: u32,
 }
 
+
 #[derive(Debug,Clone)]
 pub enum ServerRole {
     Master(Option<MasterServerOptions>),

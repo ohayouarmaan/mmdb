@@ -65,7 +65,13 @@ impl ReplicationInterpreter {
                                 },
                                 ClientConnectionState::ReplConf1Sent => {
                                     self.state = ClientConnectionState::ReplConf2Sent;
-                                    None
+                                    Some(Helper::build_resp(&Reply::ReplyArray(
+                                        vec!(
+                                            Reply::ReplyBulkString("PSYNC".to_string()),
+                                            Reply::ReplyBulkString("?".to_string()),
+                                            Reply::ReplyBulkString("-1".to_string()),
+                                        )
+                                    )))
                                 },
                                 _ => {
                                     Some(Helper::build_resp(
@@ -74,6 +80,11 @@ impl ReplicationInterpreter {
                                 }
                                 
                             }
+                        },
+                        "fullresync" => {
+                            Some(Helper::build_resp(
+                                &Reply::ReplyBulkString("".to_string())
+                            ))
                         },
                         c => {
                             println!("FOUND COMMAND: {}", c);

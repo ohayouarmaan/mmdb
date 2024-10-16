@@ -62,13 +62,13 @@ impl<'a> RESPInterpreter<'a> {
         match ds {
             DS::String(start, end) => {
                 let mut response = String::from("+");
-                response.push_str(&(self.source_code[*start..*end]).to_string());
+                response.push_str(&(self.source_code[*start..*end]));
                 response.push_str("\r\n");
                 return response;
             },
             DS::RedArray(x) => {
                 let mut response = String::from("*");
-                response.push_str(&(x.value.len() as u8).to_string());
+                response.push_str(&(x.value.len()).to_string());
                 response.push_str("\r\n");
                 for d in &x.value {
                     let x = self.build_response(&d);
@@ -80,7 +80,7 @@ impl<'a> RESPInterpreter<'a> {
                 let mut response = String::from("$");
                 response.push_str(&(end - start).to_string());
                 response.push_str("\r\n");
-                response.push_str(&(self.source_code[*start..*end]).to_string());
+                response.push_str(&(self.source_code[*start..*end]));
                 response.push_str("\r\n");
                 return response;
             }
@@ -281,6 +281,20 @@ impl<'a> RESPInterpreter<'a> {
                         }
                         _ => {
                             Helper::build_resp(&Reply::ReplyString("-invalid argument for `info` command".to_string()))
+                        }
+                    }
+                },
+                "psync" => {
+                    match &self.server_options.server_role {
+                        Some(ServerRole::Master(Some(master_options))) => {
+                            Helper::build_resp(&Reply::ReplyArray(vec!(
+                                Reply::ReplyString("FULLRESYNC".to_string()),
+                                Reply::ReplyBulkString(master_options.master_replid.clone()),
+                                Reply::ReplyBulkString(master_options.master_repl_offset.to_string())
+                            )))
+                        },
+                        _ => {
+                            Helper::build_resp(&Reply::ReplyBulkString("-Error can only ask for psync from master".to_string()))
                         }
                     }
                 },
