@@ -3,7 +3,8 @@ use std::io::prelude::*;
 
 use crate::datastore::store::DataStore;
 use crate::server::parser::RESPParser;
-use crate::server::interpreter::RESPInterpreter;
+use crate::server::interpreter::{RESPInterpreter, Reply};
+use crate::helpers::Helper;
 
 #[derive(Debug,Clone)]
 pub struct SlaveServerOptions {
@@ -28,14 +29,15 @@ pub struct ServerOptions {
     pub rdb_file_name: Option<std::path::PathBuf>,
     pub rdb_dir_name: Option<std::path::PathBuf>,
     pub port: Option<u32>,
-    pub server_role: Option<ServerRole>
+    pub server_role: Option<ServerRole>,
 }
 
 pub struct Server {
     listener: TcpListener,
     clients: Vec<Client>,
     store: DataStore,
-    pub server_options: ServerOptions
+    pub server_options: ServerOptions,
+    pub replication_stream: Option<TcpStream>
 }
 
 pub struct Client {
@@ -50,7 +52,8 @@ impl Server {
                     listener: TcpListener::bind(address).unwrap(),
                     clients: vec![],
                     store: data,
-                    server_options: server_opts
+                    server_options: server_opts,
+                    replication_stream: None
                 }
             },
             None => {
@@ -58,9 +61,21 @@ impl Server {
                     listener: TcpListener::bind(address).unwrap(),
                     clients: vec![],
                     store: DataStore::new(),
-                    server_options: server_opts
+                    server_options: server_opts,
+                    replication_stream: None
                 }
             }
+        }
+    }
+
+    pub fn connect_to_master(&mut self) {
+        match &self.server_options.server_role {
+            Some(ServerRole::Slave(slave_options)) => {
+                let mut master_connection_stream = TcpStream::connect(format!("{}:{}", slave_options.master_host, slave_options.master_port)).unwrap();
+                master_connection_stream.write(Helper::build_resp(&Reply::ReplyArray(vec![Reply::ReplyBulkString("PING".to_string())])).as_bytes());
+                self.replication_stream = Some(master_connection_stream);
+            }
+            _ => {}
         }
     }
 

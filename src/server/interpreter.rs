@@ -1,6 +1,7 @@
 use crate::server::parser::DS;
 use crate::datastore::store::{DataItem, DataStore};
 use crate::server::server::{ServerOptions, ServerRole};
+use crate::helpers::Helper;
 
 use std::time::{Duration, SystemTime};
 
@@ -86,34 +87,6 @@ impl<'a> RESPInterpreter<'a> {
         }
     }
 
-    pub fn build_reply(&mut self, reply: &Reply) -> String {
-        match reply {
-            Reply::ReplyString(s) => {
-                let mut response = String::from("+");
-                response.push_str(&(s).to_string());
-                response.push_str("\r\n");
-                return response;
-            },
-            Reply::ReplyArray(arr_data) => {
-                let mut response = String::from("*");
-                response.push_str(&(arr_data.len() as u8).to_string());
-                response.push_str("\r\n");
-                for d in arr_data {
-                    let x = self.build_reply(d);
-                    response.push_str(&x);
-                }
-                return response;
-            },
-            Reply::ReplyBulkString(s) => {
-                let mut response = String::from("$");
-                response.push_str(&(s.len()).to_string());
-                response.push_str("\r\n");
-                response.push_str(&(s).to_string());
-                response.push_str("\r\n");
-                return response;
-            }
-        }
-    }
 
     pub fn interpret(&mut self, ds: DS) -> String {
         let cmd = self.build_command(ds);
@@ -287,7 +260,7 @@ impl<'a> RESPInterpreter<'a> {
                 },
                 "keys" => {
                     let keys = self.data_store.memory.keys().map(|x| Reply::ReplyBulkString(x.to_string())).collect::<Vec<Reply>>();
-                    return self.build_reply(&Reply::ReplyArray(keys));
+                    return Helper::build_resp(&Reply::ReplyArray(keys));
                 },
                 "info" => {
                     let argument = leader_args.pop_front();
@@ -296,18 +269,18 @@ impl<'a> RESPInterpreter<'a> {
                             let _info_about = self.source_code.get(start..end).to_owned().expect("Expected a value for replication");
                             match &self.server_options.server_role {
                                 Some(ServerRole::Slave(_slave_option)) => {
-                                    self.build_reply(&Reply::ReplyBulkString("role:slave".to_string()))
+                                    Helper::build_resp(&Reply::ReplyBulkString("role:slave".to_string()))
                                 }
                                 Some(ServerRole::Master(Some(_master_option))) => {
-                                    self.build_reply(&Reply::ReplyBulkString(format!("role:master\r\nmaster_replid:{}\r\nmaster_repl_offset:{}", _master_option.master_replid, _master_option.master_repl_offset)))
+                                    Helper::build_resp(&Reply::ReplyBulkString(format!("role:master\r\nmaster_replid:{}\r\nmaster_repl_offset:{}", _master_option.master_replid, _master_option.master_repl_offset)))
                                 }
                                 _ => {
-                                    self.build_reply(&Reply::ReplyBulkString("role:master".to_string()))
+                                    Helper::build_resp(&Reply::ReplyBulkString("role:master".to_string()))
                                 }
                             }
                         }
                         _ => {
-                            self.build_reply(&Reply::ReplyString("-invalid argument for `info` command".to_string()))
+                            Helper::build_resp(&Reply::ReplyString("-invalid argument for `info` command".to_string()))
                         }
                     }
                 },
