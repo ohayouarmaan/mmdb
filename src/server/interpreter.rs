@@ -298,6 +298,9 @@ impl<'a> RESPInterpreter<'a> {
                                 Some(ServerRole::Slave(_slave_option)) => {
                                     self.build_reply(&Reply::ReplyBulkString("role:slave".to_string()))
                                 }
+                                Some(ServerRole::Master(Some(_master_option))) => {
+                                    self.build_reply(&Reply::ReplyBulkString(format!("role:master\r\nmaster_replid:{}\r\nmaster_repl_offset:{}", _master_option.master_replid, _master_option.master_repl_offset)))
+                                }
                                 _ => {
                                     self.build_reply(&Reply::ReplyBulkString("role:master".to_string()))
                                 }

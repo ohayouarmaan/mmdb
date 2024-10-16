@@ -4,7 +4,7 @@ mod rdb;
 
 use datastore::store::DataStore;
 
-use crate::server::{Server, ServerOptions, ServerRole};
+use crate::server::{Server, ServerOptions, ServerRole, MasterServerOptions};
 use crate::rdb::rdb::RDBFileHelper;
 
 use std::collections::VecDeque;
@@ -16,7 +16,10 @@ fn main() {
         rdb_file_name: None,
         rdb_dir_name: None,
         port: None,
-        server_role: Some(ServerRole::Master)
+        server_role: Some(ServerRole::Master(Some(MasterServerOptions {
+            master_replid: "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb".to_string(),
+            master_repl_offset: 0
+        })))
     };
     while let Some(option) = args.pop_front() {
         if option == "--dir" {
