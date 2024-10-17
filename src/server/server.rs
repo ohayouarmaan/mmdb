@@ -121,7 +121,16 @@ impl Server {
                         interpreter.register(&message);
                         let ds = rp.parse();
                         let response = interpreter.interpret(ds);
-                        let _ = client.client.write(response.as_bytes());
+                        for resp in response {
+                            match resp {
+                                super::interpreter::InterpreterResponse::Bytes(b) => {
+                                    let _ = client.client.write(&b);
+                                },
+                                super::interpreter::InterpreterResponse::String(s) => {
+                                    let _ = client.client.write(s.as_bytes());
+                                }
+                            }
+                        }
                     }
                 }
             }

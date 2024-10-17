@@ -2,8 +2,12 @@ use crate::server::parser::DS;
 use crate::datastore::store::{DataItem, DataStore};
 use crate::server::server::{ServerOptions, ServerRole};
 use crate::helpers::Helper;
+use base64::prelude::*;
 
-use std::time::{Duration, SystemTime};
+use std::{
+    time::{Duration, SystemTime},
+    fs
+};
 
 pub struct RESPInterpreter<'a> {
     source_code: String,
@@ -15,6 +19,11 @@ pub enum Reply {
     ReplyArray(Vec<Reply>),
     ReplyBulkString(String),
     ReplyString(String),
+}
+
+pub enum InterpreterResponse {
+    String(String),
+    Bytes(Vec<u8>),
 }
 
 pub struct SetOptions {
@@ -88,17 +97,21 @@ impl<'a> RESPInterpreter<'a> {
     }
 
 
-    pub fn interpret(&mut self, ds: DS) -> String {
+    pub fn interpret(&mut self, ds: DS) -> Vec<InterpreterResponse> {
         let cmd = self.build_command(ds);
         if let Err(_) = cmd {
-            return "- Error while interpreting the message".to_string();
+            return vec![
+                InterpreterResponse::String("- Error while interpreting the message".to_string())
+            ];
         } else {
             let v = cmd.unwrap();
             let leader_cmd = v.0;
             let mut leader_args = std::collections::VecDeque::from(v.1);
             match leader_cmd.as_str() {
                 "echo" => {
-                    self.build_response(leader_args.front().expect("Expected an argument"))
+                    vec![
+                        InterpreterResponse::String(self.build_response(leader_args.front().expect("Expected an argument")))
+                    ]
                 },
                 "set" => {
                     let key = leader_args.pop_front().unwrap();
@@ -110,7 +123,9 @@ impl<'a> RESPInterpreter<'a> {
                             key_string = self.source_code.get(start..end).unwrap();
                         },
                         _ => {
-                            return "-ERROR Expected the key to be a string".to_owned();
+                            return vec![
+                                InterpreterResponse::String("-ERROR Expected the key to be a string".to_owned())
+                            ]
                         }
                     }
 
@@ -120,7 +135,9 @@ impl<'a> RESPInterpreter<'a> {
                             value_string = self.source_code.get(start..end).unwrap();
                         },
                         _ => {
-                            return "-ERROR Expected the value to be a string".to_owned();
+                            return vec![
+                                InterpreterResponse::String("-ERROR Expected the value to be a string".to_owned())
+                            ]
                         }
                     }
                     
@@ -149,7 +166,9 @@ impl<'a> RESPInterpreter<'a> {
                                     }
                                 },
                                 _ => {
-                                    return "-ERROR Invalid argument type".to_owned();
+                                    return vec![
+                                        InterpreterResponse::String("-ERROR Invalid argument type".to_owned())
+                                    ]
                                 }
                             }
                         }
@@ -159,7 +178,9 @@ impl<'a> RESPInterpreter<'a> {
                         data: value_string.to_owned(),
                         expiry: args.expiry
                     });
-                    return "+OK\r\n".to_string();
+                    vec![
+                        InterpreterResponse::String("+OK\r\n".to_string())
+                    ]
                 },
                 "get" => {
                     let key = leader_args.front().unwrap();
@@ -169,7 +190,9 @@ impl<'a> RESPInterpreter<'a> {
                             key_string = self.source_code.get(*start..*end).unwrap();
                         },
                         _ => {
-                            return "-ERROR Expected the key to be a string".to_owned();
+                            return vec![
+                                InterpreterResponse::String("-ERROR Expected the key to be a string".to_owned())
+                            ];
                         }
                     }
                     let mut response = String::from("$");
@@ -199,7 +222,9 @@ impl<'a> RESPInterpreter<'a> {
                             response.push_str("\r\n");
                         }
                     }
-                    return response;
+                    return vec![
+                        InterpreterResponse::String(response)
+                    ];
                 },
                 "config" => {
                     let config_action = leader_args.pop_front();
@@ -213,17 +238,25 @@ impl<'a> RESPInterpreter<'a> {
                                         let key = key_ds.get_value(&self.source_code);
                                         if key == "dir" {
                                             let dir_name: String = self.server_options.rdb_dir_name.clone().expect("expected a directory name found nothing").as_path().to_str().expect("no dirname").to_owned();
-                                            return format!("*2\r\n$3\r\ndir\r\n${}\r\n{}\r\n", dir_name.len(), dir_name).to_owned();
+                                            return vec![
+                                                InterpreterResponse::String(format!("*2\r\n$3\r\ndir\r\n${}\r\n{}\r\n", dir_name.len(), dir_name).to_owned())
+                                            ];
                                         } else if key == "dbfilename" {
                                             let db_file_name: String = self.server_options.rdb_file_name.clone().expect("expected a file name found nothing").as_path().to_str().expect("no dbfilename").to_owned();
-                                            return format!("*2\r\n$10\r\ndbfilename\r\n${}\r\n{}\r\n", db_file_name.len(), db_file_name).to_owned();
+                                            return vec![
+                                                InterpreterResponse::String(format!("*2\r\n$10\r\ndbfilename\r\n${}\r\n{}\r\n", db_file_name.len(), db_file_name).to_owned())
+                                            ];
 
                                         } else {
-                                            return "".to_owned();
+                                            return vec![
+                                                InterpreterResponse::String("".to_owned())
+                                            ];
                                         }
 
                                     } else {
-                                        return "".to_owned();
+                                        return vec![
+                                            InterpreterResponse::String("".to_owned())
+                                        ];
                                     }
                                 },
                                 "set" => {
@@ -233,17 +266,25 @@ impl<'a> RESPInterpreter<'a> {
                                         if key == "dir" {
                                             let new_dir_value = leader_args.pop_front().expect("Expected a value").get_value(&self.source_code);
                                             self.server_options.rdb_dir_name = Some(std::path::PathBuf::from(new_dir_value));
-                                            return "+OK\r\n".to_owned();
+                                            return vec![
+                                                InterpreterResponse::String("+OK\r\n".to_owned())
+                                            ];
                                         } else if key == "dbfilename" {
                                             let new_db_file_name_value = leader_args.pop_front().expect("Expected a value").get_value(&self.source_code);
                                             self.server_options.rdb_file_name = Some(std::path::PathBuf::from(new_db_file_name_value));
-                                            return "+OK\r\n".to_owned();
+                                            return vec![
+                                                InterpreterResponse::String("+OK\r\n".to_owned())
+                                            ];
                                         } else {
-                                            return "-ERROR trying to set invalid config option\r\n".to_owned();
+                                            return vec![
+                                                InterpreterResponse::String("-ERROR trying to set invalid config option\r\n".to_owned())
+                                            ];
                                         }
 
                                     } else {
-                                        return "-ERROR no config key sent\r\n".to_owned();
+                                        return vec![
+                                            InterpreterResponse::String("-ERROR no config key sent\r\n".to_owned())
+                                        ];
                                     }
                                 },
                                 c => {
@@ -252,15 +293,21 @@ impl<'a> RESPInterpreter<'a> {
                                 },
                             }
                         } else {
-                            return "-ERROR config action invalid".to_owned();
+                            return vec![
+                                InterpreterResponse::String("-ERROR config action invalid".to_owned())
+                            ];
                         }
                     } else {
-                        return "-ERROR config action invalid".to_owned();
+                        return vec![
+                            InterpreterResponse::String("-ERROR config action invalid".to_owned())
+                        ];
                     }
                 },
                 "keys" => {
                     let keys = self.data_store.memory.keys().map(|x| Reply::ReplyBulkString(x.to_string())).collect::<Vec<Reply>>();
-                    return Helper::build_resp(&Reply::ReplyArray(keys));
+                    return vec![
+                        InterpreterResponse::String(Helper::build_resp(&Reply::ReplyArray(keys)))
+                    ];
                 },
                 "info" => {
                     let argument = leader_args.pop_front();
@@ -269,36 +316,59 @@ impl<'a> RESPInterpreter<'a> {
                             let _info_about = self.source_code.get(start..end).to_owned().expect("Expected a value for replication");
                             match &self.server_options.server_role {
                                 Some(ServerRole::Slave(_slave_option)) => {
-                                    Helper::build_resp(&Reply::ReplyBulkString("role:slave".to_string()))
+                                    vec![
+                                        InterpreterResponse::String(Helper::build_resp(&Reply::ReplyBulkString("role:slave".to_string())))
+                                    ]
                                 }
                                 Some(ServerRole::Master(Some(_master_option))) => {
-                                    Helper::build_resp(&Reply::ReplyBulkString(format!("role:master\r\nmaster_replid:{}\r\nmaster_repl_offset:{}", _master_option.master_replid, _master_option.master_repl_offset)))
+                                    vec![
+                                        InterpreterResponse::String(Helper::build_resp(&Reply::ReplyBulkString(format!("role:master\r\nmaster_replid:{}\r\nmaster_repl_offset:{}", _master_option.master_replid, _master_option.master_repl_offset))))
+                                    ]
                                 }
                                 _ => {
-                                    Helper::build_resp(&Reply::ReplyBulkString("role:master".to_string()))
+                                    vec![
+                                        InterpreterResponse::String(Helper::build_resp(&Reply::ReplyBulkString("role:master".to_string())))
+                                    ]
                                 }
                             }
                         }
                         _ => {
-                            Helper::build_resp(&Reply::ReplyString("-invalid argument for `info` command".to_string()))
+                            vec![
+                                InterpreterResponse::String(Helper::build_resp(&Reply::ReplyString("-invalid argument for `info` command".to_string())))
+                            ]
                         }
                     }
                 },
                 "psync" => {
                     match &self.server_options.server_role {
                         Some(ServerRole::Master(Some(master_options))) => {
-                            Helper::build_resp(&Reply::ReplyBulkString(format!("FULLRESYNC {} {}", master_options.master_replid, master_options.master_repl_offset)))
+                            let empty_rdb_file_content = match BASE64_STANDARD.decode(b"UkVESVMwMDEx+glyZWRpcy12ZXIFNy4yLjD6CnJlZGlzLWJpdHPAQPoFY3RpbWXCbQi8ZfoIdXNlZC1tZW3CsMQQAPoIYW9mLWJhc2XAAP/wbjv+wP9aog==") {
+                                Ok(value) => value,
+                                _ => panic!("Can not decode empty RDB file.")
+                            };
+                            vec![
+                                InterpreterResponse::String(Helper::build_resp(&Reply::ReplyBulkString(format!("FULLRESYNC {} {}", master_options.master_replid, master_options.master_repl_offset)))),
+                                InterpreterResponse::Bytes(
+                                    [format!("${}\r\n", empty_rdb_file_content.len()).as_bytes().to_vec(), empty_rdb_file_content].concat()
+                                ),
+                            ]
                         },
                         _ => {
-                            Helper::build_resp(&Reply::ReplyBulkString("-Error can only ask for psync from master".to_string()))
+                            vec![
+                                InterpreterResponse::String(Helper::build_resp(&Reply::ReplyBulkString("-Error can only ask for psync from master".to_string())))
+                            ]
                         }
                     }
                 },
                 "ping" => {
-                    return "+PONG\r\n".to_string();
+                    return vec![
+                        InterpreterResponse::String("+PONG\r\n".to_string())
+                    ];
                 },
                 _ => {
-                    return "+OK\r\n".to_string();
+                    return vec![
+                        InterpreterResponse::String("+OK\r\n".to_string())
+                    ];
                 }
             }
         }
