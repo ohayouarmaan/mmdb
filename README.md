@@ -1,35 +1,57 @@
-[![progress-banner](https://backend.codecrafters.io/progress/redis/6227d866-1293-4236-8c88-5149d1458cc5)](https://app.codecrafters.io/users/ohayouarmaan?r=2qF)
+### **Redis Clone in Rust**
 
-This is a starting point for Rust solutions to the
-["Build Your Own Redis" Challenge](https://codecrafters.io/challenges/redis).
+**Project Overview**
 
-In this challenge, you'll build a toy Redis clone that's capable of handling
-basic commands like `PING`, `SET` and `GET`. Along the way we'll learn about
-event loops, the Redis protocol and more.
+This project aims to create a Rust-based Redis clone. It currently provides core functionalities such as:
 
-**Note**: If you're viewing this repo on GitHub, head over to
-[codecrafters.io](https://codecrafters.io) to try the challenge.
+-   **Data Structures:** Support for `SET`, `DELETE`, and `GET` operations.
+-   **Replication:** Implements both partial sync replication and full resync replication.
+-   **RESP Protocol:** Compatible with the RESP protocol for communication.
+-   **RDB Persistence:** Can load data from existing RDB files.
 
-# Passing the first stage
+**Future Enhancements**
 
-The entry point for your Redis implementation is in `src/main.rs`. Study and
-uncomment the relevant code, and push your changes to pass the first stage:
+-   **Transactions:** Introduce support for transactions to ensure data consistency.
+-   **Streams:** Implement streams for efficient pub/sub messaging and data processing.
 
-```sh
-git add .
-git commit -m "pass 1st stage" # any msg
-git push origin master
+**Getting Started**
+
+1.  **Clone the Repository:**
+    
+    Bash
+    
+    ```
+    git clone https://github.com/ohayouarmaan/mmdb
+    
+    ```
+    
+    **Build and Run:**
+
+Bash
+
+```
+cd mmdb
+cargo build --release
+./target/release/mmdb --port 6379
+
 ```
 
-That's all!
+**Usage**
 
-# Stage 2 & beyond
+-   **Connect:** Use a Redis client to connect to your server.
+-   **Commands:** Execute Redis commands like `SET`, `GET`, `DELETE`, etc.
+-   **Replication:** Configure replication settings and connect replica nodes.
 
-Note: This section is for stages 2 and beyond.
+**Contributing**
 
-1. Ensure you have `cargo (1.54)` installed locally
-1. Run `./spawn_redis_server.sh` to run your Redis server, which is implemented
-   in `src/main.rs`. This command compiles your Rust project, so it might be
-   slow the first time you run it. Subsequent runs will be fast.
-1. Commit your changes and run `git push origin master` to submit your solution
-   to CodeCrafters. Test output will be streamed to your terminal.
+Contributions are welcome! Please follow these guidelines:
+
+-   **Fork the repository.**
+-   **Create a branch:**  `git checkout -b feature-your-feature`
+-   **Make your changes.**
+-   **Commit your changes:**  `git commit -m 'Add some feature'`
+-   **Push to the branch:**  `git push origin feature-your-feature`
+-   **Create a pull request.**
+**License**
+
+This project is licensed under the [MIT License](https://www.google.com/url?sa=E&source=gmail&q=https://opensource.org/licenses/MIT).
