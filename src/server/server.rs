@@ -142,7 +142,6 @@ impl Server {
                     if let Ok(read_size) = replication_data_read {
                         if read_size != 0 {
                             let str_message = String::from_utf8_lossy(&replication_data);
-                            println!("STR_MESSAGE: {:?}", str_message);
                             let message = str_message.trim().replace("\0", "");
                             rp.register(&message);
                             let ds = rp.parse();
